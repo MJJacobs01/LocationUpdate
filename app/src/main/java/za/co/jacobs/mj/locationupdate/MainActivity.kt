@@ -1,24 +1,24 @@
 package za.co.jacobs.mj.locationupdate
 
-import android.*
 import android.Manifest
 import android.annotation.*
 import android.content.*
 import android.location.*
 import android.os.*
+import android.util.*
 import androidx.activity.*
 import androidx.activity.compose.*
 import androidx.activity.result.contract.*
 import androidx.annotation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.unit.*
 import kotlinx.coroutines.*
 import za.co.jacobs.mj.locationupdate.ui.theme.*
-import java.text.DecimalFormat
+import java.text.*
 
 class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.S)
@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val context = LocalContext.current
             val coroutineScope = rememberCoroutineScope()
-
+            
             val lat = remember { mutableDoubleStateOf(0.0) }
             val lng = remember { mutableDoubleStateOf(0.0) }
             val accuracy = remember { mutableFloatStateOf(0f) }
@@ -36,9 +36,9 @@ class MainActivity : ComponentActivity() {
             val speed = remember { mutableFloatStateOf(0f) }
             val bundle = remember { mutableStateOf(Bundle()) }
             val placeName = remember { mutableStateOf("") }
-
+            
             val decimalFormat = DecimalFormat("0.0000")
-
+            
             val permissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestPermission()
             ) { isGranted ->
@@ -56,13 +56,33 @@ class MainActivity : ComponentActivity() {
                                 bundle.putBundle("extras", bundle)
                             }
                         }
-
+                        
+                        Geocoder(context)
+                            .getFromLocation(
+                                lat.doubleValue,
+                                lng.doubleValue,
+                                1
+                            ) { addresses ->
+                                if (addresses.isNotEmpty()) {
+                                    //  Address is not empty and address can be accessed
+                                    placeName.value = addresses[0].toString()
+                                } else {
+                                    //  Address is empty
+                                    placeName.value = "Address is empty"
+                                }
+                            }
+                        
                         //  Todo - Geocoder can only be called once there is internet access for the app
-                        placeName.value = Geocoder(context).getFromLocation(lat.doubleValue, lng.doubleValue, 1).toString()
+//                        placeName.value = Geocoder(context)
+//                            .getFromLocation(
+//                                lat.doubleValue,
+//                                lng.doubleValue,
+//                                1
+//                            ).toString()
                     }
                 }
             }
-
+            
             LocationUpdateTheme {
                 Box(modifier = Modifier.fillMaxSize()) {
                     Column(
@@ -88,7 +108,8 @@ class MainActivity : ComponentActivity() {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "Satellites : ${
-                                bundle.value.getBundle("extras")?.get("satellites")
+                                bundle.value.toString()
+//                                    .getBundle("extras")?.getInt("satellites")
                             }"
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -125,6 +146,33 @@ suspend fun gpsProvider(context: Context): Location? {
     ) {
         /** No-Op */
     }
+    
+    val gnssCallback = object : GnssStatus.Callback() {
+        override fun onSatelliteStatusChanged(status: GnssStatus) {
+            val numberOfSatellites = status.satelliteCount
+            for (i in 0 until numberOfSatellites) {
+                if (status.getCn0DbHz(i) > 0.5) {
+                    Log.e(
+                        "Satellite information",
+                        "This is number $i from $numberOfSatellites seen by the device.\n" +
+                                "ID: ${status.getSvid(i)}\n" +
+                                "Signal Strength: ${status.getCn0DbHz(i)}\n" +
+                                "Used in fix: ${status.usedInFix(i)}\n" +
+                                "azimuth: ${status.getAzimuthDegrees(i)}\n" +
+                                "constellationType: ${status.getConstellationType(i)}\n" +
+                                "elevation: ${status.getElevationDegrees(i)}\n" +
+                                "almanacData: ${status.hasAlmanacData(i)}\n" +
+                                "carrierFrequencyHz: ${status.hasCarrierFrequencyHz(i)}\n" +
+                                "basebandCn0DbHz: ${status.hasBasebandCn0DbHz(i)}\n" +
+                                "ephemeris: ${status.hasEphemerisData(i)}\n" +
+                                "contents: ${status.describeContents()}\n"
+                    )
+                }
+            }
+            
+        }
+    }
+    locationManager.registerGnssStatusCallback(context.mainExecutor, gnssCallback)
     delay(5000L)
     return locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
 }
