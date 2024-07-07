@@ -57,21 +57,22 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         
-                        Geocoder(context)
-                            .getFromLocation(
-                                lat.doubleValue,
-                                lng.doubleValue,
-                                1
-                            ) { addresses ->
-                                if (addresses.isNotEmpty()) {
-                                    //  Address is not empty and address can be accessed
-                                    placeName.value = addresses[0].toString()
-                                } else {
-                                    //  Address is empty
-                                    placeName.value = "Address is empty"
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            Geocoder(context)
+                                .getFromLocation(
+                                    lat.doubleValue,
+                                    lng.doubleValue,
+                                    1
+                                ) { addresses ->
+                                    if (addresses.isNotEmpty()) {
+                                        //  Address is not empty and address can be accessed
+                                        placeName.value = addresses[0].toString()
+                                    } else {
+                                        //  Address is empty
+                                        placeName.value = "Address is empty"
+                                    }
                                 }
-                            }
-                        
+                        }
                         //  Todo - Geocoder can only be called once there is internet access for the app
 //                        placeName.value = Geocoder(context)
 //                            .getFromLocation(
@@ -110,6 +111,7 @@ class MainActivity : ComponentActivity() {
                             text = "Satellites : ${
                                 bundle.value.toString()
 //                                    .getBundle("extras")?.getInt("satellites")
+//                                See under gpsProvider function
                             }"
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -169,7 +171,6 @@ suspend fun gpsProvider(context: Context): Location? {
                     )
                 }
             }
-            
         }
     }
     locationManager.registerGnssStatusCallback(context.mainExecutor, gnssCallback)
