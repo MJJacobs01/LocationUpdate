@@ -1,200 +1,181 @@
 package za.co.jacobs.mj.locationupdate
 
 import android.Manifest
-import android.annotation.*
-import android.content.*
-import android.location.*
-import android.os.*
-import android.util.*
-import androidx.activity.*
-import androidx.activity.compose.*
-import androidx.activity.result.contract.*
-import androidx.annotation.*
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.*
-import androidx.compose.ui.platform.*
-import androidx.compose.ui.unit.*
-import kotlinx.coroutines.*
-import za.co.jacobs.mj.locationupdate.ui.theme.*
-import java.text.*
+import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
+import android.provider.Settings
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import za.co.jacobs.mj.locationupdate.data.LocationData
+import za.co.jacobs.mj.locationupdate.ui.LocationUiState
+import za.co.jacobs.mj.locationupdate.ui.LocationViewModel
+import za.co.jacobs.mj.locationupdate.ui.theme.LocationUpdateTheme
+import java.text.DecimalFormat
 
 class MainActivity : ComponentActivity() {
-    @RequiresApi(Build.VERSION_CODES.S)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            val context = LocalContext.current
-            val coroutineScope = rememberCoroutineScope()
-            
-            val lat = remember { mutableDoubleStateOf(0.0) }
-            val lng = remember { mutableDoubleStateOf(0.0) }
-            val accuracy = remember { mutableFloatStateOf(0f) }
-            val altitude = remember { mutableDoubleStateOf(0.0) }
-            val bearing = remember { mutableFloatStateOf(0f) }
-            val speed = remember { mutableFloatStateOf(0f) }
-            val bundle = remember { mutableStateOf(Bundle()) }
-            val placeName = remember { mutableStateOf("") }
-            
-            val decimalFormat = DecimalFormat("0.0000")
-            
-            val permissionLauncher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.RequestPermission()
-            ) { isGranted ->
-                if (isGranted) {
-                    coroutineScope.launch {
-                        val location = gpsProvider(context = context)
-                        location?.let {
-                            lat.doubleValue = it.latitude
-                            lng.doubleValue = it.longitude
-                            accuracy.floatValue = it.accuracy
-                            altitude.doubleValue = it.altitude
-                            bearing.floatValue = it.bearing
-                            speed.floatValue = it.speed
-                            it.extras?.let { bundle ->
-                                bundle.putBundle("extras", bundle)
-                            }
-                        }
-                        
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            Geocoder(context)
-                                .getFromLocation(
-                                    lat.doubleValue,
-                                    lng.doubleValue,
-                                    1
-                                ) { addresses ->
-                                    if (addresses.isNotEmpty()) {
-                                        //  Address is not empty and address can be accessed
-                                        placeName.value = addresses[0].toString()
-                                    } else {
-                                        //  Address is empty
-                                        placeName.value = "Address is empty"
-                                    }
-                                }
-                        }
-                        //  Todo - Geocoder can only be called once there is internet access for the app
-//                        placeName.value = Geocoder(context)
-//                            .getFromLocation(
-//                                lat.doubleValue,
-//                                lng.doubleValue,
-//                                1
-//                            ).toString()
-                    }
-                }
-            }
-            
             LocationUpdateTheme {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(8.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(text = "The coordinates for the current location is:")
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Latitude : ${decimalFormat.format(lat.doubleValue)}")
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Longitude : ${decimalFormat.format(lng.doubleValue)}")
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Accuracy : ${accuracy.floatValue}")
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Altitude : ${altitude.doubleValue}")
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Bearing : ${bearing.floatValue}")
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Speed : ${speed.floatValue}")
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Satellites : ${
-                                bundle.value.toString()
-//                                    .getBundle("extras")?.getInt("satellites")
-//                                See under gpsProvider function
-                            }"
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "This is the name ${placeName.value}"
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = {
-                                permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                            }
-                        ) {
-                            Text(text = "Request current location")
-                        }
-                    }
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background,
+                ) {
+                    LocationScreen()
                 }
             }
         }
     }
 }
 
-@RequiresApi(Build.VERSION_CODES.S)
-@SuppressLint("MissingPermission")
-suspend fun gpsProvider(context: Context): Location? {
-    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    val locationRequest = LocationRequest.Builder(1000L)
-        .setDurationMillis(Long.MAX_VALUE)
-        .setMaxUpdates(1)
-        .build()
-    locationManager.requestLocationUpdates(
-        LocationManager.GPS_PROVIDER,
-        locationRequest,
-        context.mainExecutor
+@Composable
+private fun LocationScreen(
+    viewModel: LocationViewModel = viewModel(
+        factory = LocationViewModel.Factory(LocalContext.current),
+    ),
+) {
+    val context = LocalContext.current
+    val uiState by viewModel.uiState.collectAsState()
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { isGranted ->
+        if (isGranted) viewModel.fetchLocation() else viewModel.onPermissionDenied()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        /** No-Op */
-    }
-    
-    val gnssCallback = object : GnssStatus.Callback() {
-        override fun onSatelliteStatusChanged(status: GnssStatus) {
-            val numberOfSatellites = status.satelliteCount
-            for (i in 0 until numberOfSatellites) {
-                if (status.getCn0DbHz(i) > 0.5) {
-                    Log.e(
-                        "Satellite information",
-                        "This is number $i from $numberOfSatellites seen by the device.\n" +
-                                "ID: ${status.getSvid(i)}\n" +
-                                "Signal Strength: ${status.getCn0DbHz(i)}\n" +
-                                "Used in fix: ${status.usedInFix(i)}\n" +
-                                "azimuth: ${status.getAzimuthDegrees(i)}\n" +
-                                "constellationType: ${status.getConstellationType(i)}\n" +
-                                "elevation: ${status.getElevationDegrees(i)}\n" +
-                                "almanacData: ${status.hasAlmanacData(i)}\n" +
-                                "carrierFrequencyHz: ${status.hasCarrierFrequencyHz(i)}\n" +
-                                "basebandCn0DbHz: ${status.hasBasebandCn0DbHz(i)}\n" +
-                                "ephemeris: ${status.hasEphemerisData(i)}\n" +
-                                "contents: ${status.describeContents()}\n"
-                    )
-                }
+        when (val state = uiState) {
+            LocationUiState.Idle -> Text(
+                text = "Tap below to fetch your current location.",
+                textAlign = TextAlign.Center,
+            )
+
+            LocationUiState.Loading -> {
+                CircularProgressIndicator()
+                Spacer(Modifier.height(16.dp))
+                Text(text = "Acquiring a location fix…")
             }
+
+            is LocationUiState.Success -> LocationDetails(state.data)
+
+            is LocationUiState.Error -> ErrorContent(
+                message = state.message,
+                showSettings = state.permissionDenied,
+                onOpenSettings = { context.openAppSettings() },
+            )
+        }
+
+        Spacer(Modifier.height(24.dp))
+        Button(
+            enabled = uiState != LocationUiState.Loading,
+            onClick = { permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION) },
+        ) {
+            Text(text = "Request current location")
         }
     }
-    locationManager.registerGnssStatusCallback(context.mainExecutor, gnssCallback)
-    delay(5000L)
-    return locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
 }
 
-@SuppressLint("MissingPermission")
-fun networkProvider(context: Context): Location? {
-    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    return locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+@Composable
+private fun LocationDetails(data: LocationData) {
+    val df = DecimalFormat("0.0000")
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Current location",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(Modifier.height(8.dp))
+            DetailRow("Latitude", df.format(data.latitude))
+            DetailRow("Longitude", df.format(data.longitude))
+            DetailRow("Accuracy", "${data.accuracy} m")
+            DetailRow("Altitude", "${data.altitude} m")
+            DetailRow("Bearing", "${data.bearing}°")
+            DetailRow("Speed", "${data.speed} m/s")
+            DetailRow("Provider", data.provider)
+            DetailRow("Satellites in fix", data.satellitesInFix?.toString() ?: "—")
+            DetailRow("Place", data.placeName ?: "—")
+        }
+    }
 }
 
-@SuppressLint("MissingPermission")
-fun passiveProvider(context: Context): Location? {
-    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    return locationManager.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Text(text = "$label: $value")
+    Spacer(Modifier.height(4.dp))
 }
 
-//  Do not want to use as it crashes
-// available for API >= 31
-@RequiresApi(Build.VERSION_CODES.S)
-@SuppressLint("MissingPermission")
-fun fusedProvider(context: Context): Location? {
-    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    return locationManager.getLastKnownLocation(LocationManager.FUSED_PROVIDER)
+@Composable
+private fun ErrorContent(
+    message: String,
+    showSettings: Boolean,
+    onOpenSettings: () -> Unit,
+) {
+    Text(text = message, textAlign = TextAlign.Center)
+    if (showSettings) {
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(onClick = onOpenSettings) {
+            Text(text = "Open settings")
+        }
+    }
+}
+
+private fun android.content.Context.openAppSettings() {
+    val intent = Intent(
+        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+        Uri.fromParts("package", packageName, null),
+    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    startActivity(intent)
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun LocationDetailsPreview() {
+    LocationUpdateTheme {
+        LocationDetails(
+            LocationData(
+                latitude = -26.2041,
+                longitude = 28.0473,
+                accuracy = 4.0f,
+                altitude = 1680.0,
+                bearing = 92.0f,
+                speed = 0.0f,
+                provider = "gps",
+                satellitesInFix = 9,
+                placeName = "Johannesburg, South Africa",
+            ),
+        )
+    }
 }

@@ -1,0 +1,95 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- ===== Globe ===== -->
+    <path
+        android:fillColor="#03DAC5"
+        android:pathData="M28,62 a20,20 0 1,0 40,0 a20,20 0 1,0 -40,0 z" />
+    <!-- Equator -->
+    <path
+        android:strokeColor="#018786"
+        android:strokeWidth="1.4"
+        android:pathData="M28,62 L68,62" />
+    <!-- Parallels -->
+    <path
+        android:strokeColor="#018786"
+        android:strokeWidth="1.4"
+        android:pathData="M31,53 L65,53" />
+    <path
+        android:strokeColor="#018786"
+        android:strokeWidth="1.4"
+        android:pathData="M31,71 L65,71" />
+    <!-- Central meridian -->
+    <path
+        android:strokeColor="#018786"
+        android:strokeWidth="1.4"
+        android:pathData="M48,42 L48,82" />
+    <!-- Meridian ellipse -->
+    <path
+        android:strokeColor="#018786"
+        android:strokeWidth="1.4"
+        android:fillColor="#00000000"
+        android:pathData="M39,62 a9,20 0 1,0 18,0 a9,20 0 1,0 -18,0 z" />
+
+    <!-- ===== Signal waves from satellite toward globe ===== -->
+    <group
+        android:name="signal"
+        android:pivotX="60"
+        android:pivotY="48">
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="1.6"
+            android:fillColor="#00000000"
+            android:pathData="M58,42 a10,10 0 0,1 10,10" />
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="1.6"
+            android:fillColor="#00000000"
+            android:pathData="M54,38 a16,16 0 0,1 16,16" />
+    </group>
+
+    <!-- ===== Satellite (tilted) ===== -->
+    <group
+        android:name="satellite"
+        android:rotation="-22"
+        android:pivotX="72"
+        android:pivotY="38">
+
+        <!-- Left solar panel -->
+        <path
+            android:fillColor="#80D8FF"
+            android:pathData="M52,34 h14 v8 h-14 z" />
+        <path
+            android:strokeColor="#0288D1"
+            android:strokeWidth="0.8"
+            android:pathData="M56.5,34 L56.5,42 M61,34 L61,42" />
+        <!-- Right solar panel -->
+        <path
+            android:fillColor="#80D8FF"
+            android:pathData="M78,34 h14 v8 h-14 z" />
+        <path
+            android:strokeColor="#0288D1"
+            android:strokeWidth="0.8"
+            android:pathData="M83,34 L83,42 M87.5,34 L87.5,42" />
+        <!-- Panel connectors -->
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="2"
+            android:pathData="M66,38 L70,38 M74,38 L78,38" />
+        <!-- Body -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M70,33 h4 a2,2 0 0,1 2,2 v6 a2,2 0 0,1 -2,2 h-4 a2,2 0 0,1 -2,-2 v-6 a2,2 0 0,1 2,-2 z" />
+        <!-- Antenna -->
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="1.6"
+            android:pathData="M72,33 L72,28" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M72,28 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0 z" />
+    </group>
+</vector>

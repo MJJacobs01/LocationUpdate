@@ -1,0 +1,26 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108"
+    android:tint="#000000">
+
+    <!-- Globe silhouette -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M28,62 a20,20 0 1,0 40,0 a20,20 0 1,0 -40,0 z" />
+
+    <!-- Satellite silhouette (tilted) -->
+    <group
+        android:rotation="-22"
+        android:pivotX="72"
+        android:pivotY="38">
+        <path android:fillColor="#000000" android:pathData="M52,34 h14 v8 h-14 z" />
+        <path android:fillColor="#000000" android:pathData="M78,34 h14 v8 h-14 z" />
+        <path android:fillColor="#000000" android:pathData="M66,37 h26 v2 h-26 z" />
+        <path
+            android:fillColor="#000000"
+            android:pathData="M70,33 h4 a2,2 0 0,1 2,2 v6 a2,2 0 0,1 -2,2 h-4 a2,2 0 0,1 -2,-2 v-6 a2,2 0 0,1 2,-2 z" />
+        <path android:fillColor="#000000" android:pathData="M72,28 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0 z" />
+    </group>
+</vector>
