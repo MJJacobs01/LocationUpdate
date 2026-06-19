@@ -2,10 +2,11 @@ package za.co.jacobs.mj.locationupdate
 
 import android.Manifest
 import android.annotation.*
+import android.app.Activity
 import android.content.*
+import android.content.pm.PackageManager
 import android.location.*
 import android.os.*
-import android.util.*
 import androidx.activity.*
 import androidx.activity.compose.*
 import androidx.activity.result.contract.*
@@ -15,186 +16,316 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.platform.*
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.*
 import za.co.jacobs.mj.locationupdate.ui.theme.*
 import java.text.*
+import kotlin.coroutines.resume
 
 class MainActivity : ComponentActivity() {
-    @RequiresApi(Build.VERSION_CODES.S)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            val context = LocalContext.current
-            val coroutineScope = rememberCoroutineScope()
-            
-            val lat = remember { mutableDoubleStateOf(0.0) }
-            val lng = remember { mutableDoubleStateOf(0.0) }
-            val accuracy = remember { mutableFloatStateOf(0f) }
-            val altitude = remember { mutableDoubleStateOf(0.0) }
-            val bearing = remember { mutableFloatStateOf(0f) }
-            val speed = remember { mutableFloatStateOf(0f) }
-            val bundle = remember { mutableStateOf(Bundle()) }
-            val placeName = remember { mutableStateOf("") }
-            
-            val decimalFormat = DecimalFormat("0.0000")
-            
-            val permissionLauncher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.RequestPermission()
-            ) { isGranted ->
-                if (isGranted) {
-                    coroutineScope.launch {
-                        val location = gpsProvider(context = context)
-                        location?.let {
-                            lat.doubleValue = it.latitude
-                            lng.doubleValue = it.longitude
-                            accuracy.floatValue = it.accuracy
-                            altitude.doubleValue = it.altitude
-                            bearing.floatValue = it.bearing
-                            speed.floatValue = it.speed
-                            it.extras?.let { bundle ->
-                                bundle.putBundle("extras", bundle)
-                            }
-                        }
-                        
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            Geocoder(context)
-                                .getFromLocation(
-                                    lat.doubleValue,
-                                    lng.doubleValue,
-                                    1
-                                ) { addresses ->
-                                    if (addresses.isNotEmpty()) {
-                                        //  Address is not empty and address can be accessed
-                                        placeName.value = addresses[0].toString()
-                                    } else {
-                                        //  Address is empty
-                                        placeName.value = "Address is empty"
-                                    }
-                                }
-                        }
-                        //  Todo - Geocoder can only be called once there is internet access for the app
-//                        placeName.value = Geocoder(context)
-//                            .getFromLocation(
-//                                lat.doubleValue,
-//                                lng.doubleValue,
-//                                1
-//                            ).toString()
-                    }
-                }
-            }
-            
             LocationUpdateTheme {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(8.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(text = "The coordinates for the current location is:")
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Latitude : ${decimalFormat.format(lat.doubleValue)}")
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Longitude : ${decimalFormat.format(lng.doubleValue)}")
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Accuracy : ${accuracy.floatValue}")
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Altitude : ${altitude.doubleValue}")
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Bearing : ${bearing.floatValue}")
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Speed : ${speed.floatValue}")
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Satellites : ${
-                                bundle.value.toString()
-//                                    .getBundle("extras")?.getInt("satellites")
-//                                See under gpsProvider function
-                            }"
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "This is the name ${placeName.value}"
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = {
-                                permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                            }
-                        ) {
-                            Text(text = "Request current location")
-                        }
-                    }
-                }
+                LocationScreen()
             }
         }
     }
 }
 
-@RequiresApi(Build.VERSION_CODES.S)
-@SuppressLint("MissingPermission")
-suspend fun gpsProvider(context: Context): Location? {
-    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    val locationRequest = LocationRequest.Builder(1000L)
-        .setDurationMillis(Long.MAX_VALUE)
-        .setMaxUpdates(1)
-        .build()
-    locationManager.requestLocationUpdates(
-        LocationManager.GPS_PROVIDER,
-        locationRequest,
-        context.mainExecutor
-    ) {
-        /** No-Op */
-    }
+@Composable
+fun LocationScreen() {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     
-    val gnssCallback = object : GnssStatus.Callback() {
-        override fun onSatelliteStatusChanged(status: GnssStatus) {
-            val numberOfSatellites = status.satelliteCount
-            for (i in 0 until numberOfSatellites) {
-                if (status.getCn0DbHz(i) > 0.5) {
-                    Log.e(
-                        "Satellite information",
-                        "This is number $i from $numberOfSatellites seen by the device.\n" +
-                                "ID: ${status.getSvid(i)}\n" +
-                                "Signal Strength: ${status.getCn0DbHz(i)}\n" +
-                                "Used in fix: ${status.usedInFix(i)}\n" +
-                                "azimuth: ${status.getAzimuthDegrees(i)}\n" +
-                                "constellationType: ${status.getConstellationType(i)}\n" +
-                                "elevation: ${status.getElevationDegrees(i)}\n" +
-                                "almanacData: ${status.hasAlmanacData(i)}\n" +
-                                "carrierFrequencyHz: ${status.hasCarrierFrequencyHz(i)}\n" +
-                                "basebandCn0DbHz: ${status.hasBasebandCn0DbHz(i)}\n" +
-                                "ephemeris: ${status.hasEphemerisData(i)}\n" +
-                                "contents: ${status.describeContents()}\n"
-                    )
+    val lat = remember { mutableDoubleStateOf(0.0) }
+    val lng = remember { mutableDoubleStateOf(0.0) }
+    val accuracy = remember { mutableFloatStateOf(0f) }
+    val altitude = remember { mutableDoubleStateOf(0.0) }
+    val bearing = remember { mutableFloatStateOf(0f) }
+    val speed = remember { mutableFloatStateOf(0f) }
+    val placeName = remember { mutableStateOf("") }
+    
+    var isLoading by remember { mutableStateOf(false) }
+    var showRationale by remember { mutableStateOf(false) }
+    var showGpsDisabled by remember { mutableStateOf(false) }
+    
+    val decimalFormat = remember { DecimalFormat("0.0000") }
+    
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            if (LocationUtils.isGpsEnabled(context)) {
+                coroutineScope.launch {
+                    isLoading = true
+                    val location = getBestLocation(context)
+                    updateLocationState(location, lat, lng, accuracy, altitude, bearing, speed)
+                    location?.let {
+                        updatePlaceName(context, it) { name -> placeName.value = name }
+                    } ?: run {
+                        placeName.value = "Failed to get location fix"
+                    }
+                    isLoading = false
+                }
+            } else {
+                showGpsDisabled = true
+            }
+        }
+    }
+
+    if (showRationale) {
+        RationaleDialog(
+            onDismiss = { showRationale = false },
+            onConfirm = {
+                showRationale = false
+                permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+            }
+        )
+    }
+
+    if (showGpsDisabled) {
+        GpsDisabledDialog(
+            onDismiss = { showGpsDisabled = false },
+            onConfirm = {
+                showGpsDisabled = false
+                LocationUtils.openLocationSettings(context)
+            }
+        )
+    }
+
+    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Current Location Information",
+                style = MaterialTheme.typography.headlineSmall
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            LocationDataRow("Latitude", decimalFormat.format(lat.doubleValue))
+            LocationDataRow("Longitude", decimalFormat.format(lng.doubleValue))
+            LocationDataRow("Accuracy", "${accuracy.floatValue} m")
+            LocationDataRow("Altitude", "${altitude.doubleValue} m")
+            LocationDataRow("Bearing", "${bearing.floatValue}°")
+            LocationDataRow("Speed", "${speed.floatValue} m/s")
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Address: ${placeName.value}",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            if (isLoading) {
+                CircularProgressIndicator()
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Searching for satellites...")
+            } else {
+                Button(
+                    onClick = {
+                        handleLocationRequest(
+                            context,
+                            onGrant = {
+                                coroutineScope.launch {
+                                    isLoading = true
+                                    val location = getBestLocation(context)
+                                    updateLocationState(location, lat, lng, accuracy, altitude, bearing, speed)
+                                    location?.let {
+                                        updatePlaceName(context, it) { name -> placeName.value = name }
+                                    } ?: run {
+                                        placeName.value = "Failed to get location fix"
+                                    }
+                                    isLoading = false
+                                }
+                            },
+                            onRationale = { showRationale = true },
+                            onGpsDisabled = { showGpsDisabled = true },
+                            onPermissionRequest = { permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION) }
+                        )
+                    }
+                ) {
+                    Text(text = "Request current location")
                 }
             }
         }
     }
-    locationManager.registerGnssStatusCallback(context.mainExecutor, gnssCallback)
-    delay(5000L)
-    return locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+}
+
+private fun updateLocationState(
+    location: Location?,
+    lat: MutableDoubleState,
+    lng: MutableDoubleState,
+    accuracy: MutableFloatState,
+    altitude: MutableDoubleState,
+    bearing: MutableFloatState,
+    speed: MutableFloatState
+) {
+    location?.let {
+        lat.doubleValue = it.latitude
+        lng.doubleValue = it.longitude
+        accuracy.floatValue = it.accuracy
+        altitude.doubleValue = it.altitude
+        bearing.floatValue = it.bearing
+        speed.floatValue = it.speed
+    }
+}
+
+private fun handleLocationRequest(
+    context: Context,
+    onGrant: () -> Unit,
+    onRationale: () -> Unit,
+    onGpsDisabled: () -> Unit,
+    onPermissionRequest: () -> Unit
+) {
+    when {
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED -> {
+            if (LocationUtils.isGpsEnabled(context)) {
+                onGrant()
+            } else {
+                onGpsDisabled()
+            }
+        }
+        ActivityCompat.shouldShowRequestPermissionRationale(
+            context as Activity,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) -> {
+            onRationale()
+        }
+        else -> {
+            onPermissionRequest()
+        }
+    }
+}
+
+@Composable
+fun RationaleDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Location Permission") },
+        text = { Text("This app needs location access to show you your current coordinates and place name.") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Grant")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Deny")
+            }
+        }
+    )
+}
+
+@Composable
+fun GpsDisabledDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("GPS Disabled") },
+        text = { Text("GPS is required for high accuracy location updates. Please enable it in settings.") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Settings")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun LocationDataRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(text = "$label:", fontWeight = FontWeight.Bold)
+        Text(text = value)
+    }
+}
+
+private fun updatePlaceName(context: Context, location: Location, onResult: (String) -> Unit) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Geocoder(context).getFromLocation(
+            location.latitude,
+            location.longitude,
+            1
+        ) { addresses ->
+            if (addresses.isNotEmpty()) {
+                onResult(addresses[0].getAddressLine(0) ?: addresses[0].toString())
+            } else {
+                onResult("No address found")
+            }
+        }
+    } else {
+        try {
+            @Suppress("DEPRECATION")
+            val addresses = Geocoder(context).getFromLocation(location.latitude, location.longitude, 1)
+            if (!addresses.isNullOrEmpty()) {
+                onResult(addresses[0].getAddressLine(0) ?: addresses[0].toString())
+            } else {
+                onResult("No address found")
+            }
+        } catch (e: Exception) {
+            onResult("Geocoder error: ${e.message}")
+        }
+    }
 }
 
 @SuppressLint("MissingPermission")
-fun networkProvider(context: Context): Location? {
+suspend fun getBestLocation(context: Context): Location? {
     val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    return locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-}
-
-@SuppressLint("MissingPermission")
-fun passiveProvider(context: Context): Location? {
-    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    return locationManager.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
-}
-
-//  Do not want to use as it crashes
-// available for API >= 31
-@RequiresApi(Build.VERSION_CODES.S)
-@SuppressLint("MissingPermission")
-fun fusedProvider(context: Context): Location? {
-    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    return locationManager.getLastKnownLocation(LocationManager.FUSED_PROVIDER)
+    
+    return withTimeoutOrNull(30000L) {
+        suspendCancellableCoroutine { continuation ->
+            val listener = object : LocationListener {
+                override fun onLocationChanged(location: Location) {
+                    locationManager.removeUpdates(this)
+                    if (continuation.isActive) continuation.resume(location)
+                }
+                @Deprecated("Deprecated in Java")
+                override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+                override fun onProviderEnabled(provider: String) {}
+                override fun onProviderDisabled(provider: String) {}
+            }
+            
+            try {
+                locationManager.requestLocationUpdates(
+                    LocationManager.GPS_PROVIDER,
+                    0L,
+                    0f,
+                    listener,
+                    Looper.getMainLooper()
+                )
+            } catch (ignored: Exception) {
+                if (continuation.isActive) continuation.resume(null)
+            }
+            
+            continuation.invokeOnCancellation {
+                locationManager.removeUpdates(listener)
+            }
+        }
+    } ?: run {
+        // Fallback to last known if timeout occurs
+        locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+            ?: locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+    }
 }
